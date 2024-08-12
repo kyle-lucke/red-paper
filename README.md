@@ -4,7 +4,7 @@ Copyright (C) 2022 Cognizant Digital Business, Evolutionary AI. All Rights Reser
 **I AM NOT THE ORIGINAL AUTHOR OF THE PAPER IN THIS REPOSITORY. THIS REPOSITORY IS FOR ACADEMIC RESEARCH PURPOSES ONLY**
 
 # Changes from source fork
-The main changes in this fork are updating the relevant GPflow code to use version 2.9.1.
+The main changes in this fork are updating the relevant GPflow code to version 2.9.1 and Tensorflow version 2.15.0.
 
 **TODO**: update requirements.txt
 
