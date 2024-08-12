@@ -5,8 +5,6 @@ You can be released from the terms, and requirements of the Academic public lice
 """
 from __future__ import absolute_import, division, print_function
 
-# import matplotlib.pyplot as plt
-
 import random
 
 import tensorflow as tf
@@ -20,7 +18,6 @@ from util import load_UCI121, dataset_read, RIO_MRBF_multiple_running
 import numpy as np
 from sklearn.metrics import mean_absolute_error
 import scipy
-# import trustscore
 
 print(tf.__version__)
 
