@@ -39,8 +39,6 @@ def build_classification_model(layer_width, num_class, input_dim):
     layers.Dense(num_class)
   ])
 
-  optimizer = tf.keras.optimizers.RMSprop(0.001)
-
   model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                 optimizer="adam",#optimizer,
                 metrics=['accuracy'])
@@ -178,7 +176,6 @@ def run_RIO_classification(framework_variant, kernel_type, M, rio_data, rio_setu
 
     return exp_result
 
-
 # iterate over datasets
 for dataset_index in range(len(dataset_name_list)):
 
@@ -219,8 +216,8 @@ for dataset_index in range(len(dataset_name_list)):
       early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=10)
 
       history = model.fit(normed_train_data, train_labels, epochs=EPOCHS,
-                          validation_split = 0.2, verbose=0, callbacks=[early_stop])
-            
+                          validation_split=0.2, verbose=0, callbacks=[early_stop])
+
       time_checkpoint2 = time.time()
 
       loss, NN_acc = model.evaluate(normed_test_data, test_labels, verbose=0)
@@ -240,10 +237,12 @@ for dataset_index in range(len(dataset_name_list)):
       train_NN_correct = (np.argmax(train_NN_predictions, axis=1) == train_labels.values)
       num_correct = np.sum(train_NN_correct)
       num_incorrect = len(train_labels.values) - num_correct
+
       # This feature not used in RED
       scale_correct = 1.0 #len(train_labels.values)/(2*num_correct)
       scale_incorrect = 1.0 #len(train_labels.values)/(2*num_incorrect)
       scale_array = np.ones(len(train_labels.values))
+      
       if scale_correct < scale_incorrect:
         for k in range(len(train_labels.values)):
           if train_NN_correct[k]:
@@ -311,12 +310,15 @@ for dataset_index in range(len(dataset_name_list)):
       add_info = "+separate_opt"
       trial_num = 10
       max_difference = -100
+      
       for trial in range(trial_num):
         exp_result = run_RIO_classification(framework_variant, kernel_type, M, rio_data, rio_setups, algo_spec)
+        
         if exp_result["mean_correct_test"] - exp_result["mean_incorrect_test"] > max_difference:
           max_difference = exp_result["mean_correct_test"] - exp_result["mean_incorrect_test"]
                     
           result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}.pkl'.format(dataset_name, framework_variant, kernel_type, algo_spec+add_info, run))
+          
           with open(result_file_name, 'wb') as result_file:
             pickle.dump(exp_result, result_file)
 
