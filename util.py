@@ -19,7 +19,6 @@ import time
 from scipy.io import arff
 
 # file that contains functions to read dataset and run RIO variants
-print(tf.__version__)
 
 def load_UCI121(dataset_name):
     dataset_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'UCI121_data',dataset_name,'{}_py.dat'.format(dataset_name))
@@ -136,177 +135,304 @@ def dataset_read(dataset_name):
                 count_dic[dataset[9].values[i]] = 1
     return dataset
 
-def RIO_variants_running(framework_variant, kernel_type, normed_train_data, normed_test_data, train_labels, test_labels, train_NN_predictions, test_NN_predictions, M, use_ard, scale_array) :
-    train_NN_errors = train_labels - train_NN_predictions
-    for i in range(len(train_NN_predictions)):
-        if train_NN_predictions[i] > np.max(train_labels) or train_NN_predictions[i] < np.min(train_labels):
-            train_NN_errors[i] = 0
-    combined_train_data = normed_train_data.copy()
-    combined_train_data['prediction'] = train_NN_predictions
-    combined_test_data = normed_test_data.copy()
-    combined_test_data['prediction'] = test_NN_predictions
-    minibatch_size = len(normed_train_data)
-    input_dimension = len(normed_train_data.columns)
-    output_dimension = 1
-    Z = combined_train_data.values[:M, :].copy()
-    time_checkpoint1 = time.time()
-    if kernel_type == "RBF+RBF":
-        k = gpflow.kernels.SquaredExponential(input_dim=input_dimension, active_dims=range(input_dimension), ARD=use_ard) \
-            + gpflow.kernels.SquaredExponential(input_dim=output_dimension, active_dims=range(input_dimension, input_dimension + output_dimension), ARD=use_ard)
-    elif kernel_type == "RBF":
-        k = gpflow.kernels.SquaredExponential(input_dim=input_dimension, active_dims=range(input_dimension), ARD=use_ard)
-    elif kernel_type == "RBFY":
-        k = gpflow.kernels.SquaredExponential(input_dim=output_dimension, active_dims=range(input_dimension, input_dimension + output_dimension), ARD=use_ard)
-    if framework_variant == "GP_corrected" or framework_variant == "GP_corrected_inputOnly" or framework_variant == "GP_corrected_outputOnly":
-        m = gpflow.models.SVGP(combined_train_data.values, train_NN_errors.reshape(-1,1), kern=k, likelihood=gpflow.likelihoods.Gaussian(), Z=Z)#, minibatch_size=minibatch_size)
-    elif framework_variant == "GP" or framework_variant == "GP_inputOnly" or framework_variant == "GP_outputOnly":
-        m = gpflow.models.SVGP(combined_train_data.values, train_labels.reshape(-1,1), kern=k, likelihood=gpflow.likelihoods.Gaussian(), Z=Z)#, minibatch_size=minibatch_size)
 
-    opt = gpflow.train.ScipyOptimizer()
-    num_optimizer_iter = opt.minimize(m)
-    if kernel_type == "RBF+RBF":
-        hyperparameter = (m.kern.kernels[0].lengthscales.value, m.kern.kernels[0].variance.value, m.kern.kernels[1].lengthscales.value, m.kern.kernels[1].variance.value, m.likelihood.variance.value)
-    else:
-        hyperparameter = (m.kern.lengthscales.value, m.kern.variance.value, m.likelihood.variance.value)
-    mean, var = m.predict_y(combined_test_data.values)
-    time_checkpoint2 = time.time()
-    computation_time = time_checkpoint2-time_checkpoint1
-    print("computation_time_{}: {}".format(framework_variant, time_checkpoint2-time_checkpoint1))
-    if framework_variant == "GP_corrected" or framework_variant == "GP_corrected_inputOnly" or framework_variant == "GP_corrected_outputOnly":
-        test_final_predictions = test_NN_predictions + mean.reshape(-1)
-    elif framework_variant == "GP" or framework_variant == "GP_inputOnly" or framework_variant == "GP_outputOnly":
-        test_final_predictions = mean.reshape(-1)
-
-    MAE = mean_absolute_error(test_labels, test_final_predictions)
-    print("test mae after {}: {}".format(framework_variant, MAE))
-
-    num_within_interval = 0
-    for i in range(len(test_labels)):
-        if test_labels[i] <= test_final_predictions[i] + 1.96 * np.sqrt(var.reshape(-1)[i]) and test_labels[i] >= test_final_predictions[i] - 1.96 * np.sqrt(var.reshape(-1)[i]):
-            num_within_interval += 1
-    PCT_within95Interval = float(num_within_interval)/len(test_labels)
-    print("percentage of test points within 95 percent confidence interval ({}): {}".format(framework_variant, PCT_within95Interval))
-    num_within_interval = 0
-    for i in range(len(test_labels)):
-        if test_labels[i] <= test_final_predictions[i] + 1.65 * np.sqrt(var.reshape(-1)[i]) and test_labels[i] >= test_final_predictions[i] - 1.65 * np.sqrt(var.reshape(-1)[i]):
-            num_within_interval += 1
-    PCT_within90Interval = float(num_within_interval)/len(test_labels)
-    print("percentage of test points within 90 percent confidence interval ({}): {}".format(framework_variant, PCT_within90Interval))
-    num_within_interval = 0
-    for i in range(len(test_labels)):
-        if test_labels[i] <= test_final_predictions[i] + 1.0 * np.sqrt(var.reshape(-1)[i]) and test_labels[i] >= test_final_predictions[i] - 1.0 * np.sqrt(var.reshape(-1)[i]):
-            num_within_interval += 1
-    PCT_within68Interval = float(num_within_interval)/len(test_labels)
-    print("percentage of test points within 68 percent confidence interval ({}): {}".format(framework_variant, PCT_within68Interval))
-    mean = mean.reshape(-1)
-    var = var.reshape(-1)
-    print(hyperparameter)
-
-    mean_train, var_train = m.predict_y(combined_train_data.values)
-    mean_train = mean_train.reshape(-1)
-    var_train = var_train.reshape(-1)
-
-    return MAE, PCT_within95Interval, PCT_within90Interval, PCT_within68Interval, mean, var, computation_time, hyperparameter, num_optimizer_iter, mean_train, var_train
-
-def RIO_MRBF_multiple_running(framework_variant, kernel_type, normed_train_data, normed_test_data, train_labels, test_labels, train_NN_predictions, test_NN_predictions, train_NN_predictions_all, test_NN_predictions_all, M, use_ard, scale_array, separate_opt):
+def RIO_MRBF_multiple_running(framework_variant, kernel_type, normed_train_data,
+                              normed_test_data, train_labels, test_labels,
+                              train_NN_predictions, test_NN_predictions,
+                              train_NN_predictions_all, test_NN_predictions_all, M,
+                              use_ard, scale_array, separate_opt):
+    
     train_NN_errors = train_labels - train_NN_predictions
     output_dimension = len(train_NN_predictions_all[0])
     combined_train_data = normed_train_data.copy()
     combined_test_data = normed_test_data.copy()
+
     for i in range(output_dimension):
         combined_train_data['prediction{}'.format(i)] = train_NN_predictions_all[:,i]
         combined_test_data['prediction{}'.format(i)] = test_NN_predictions_all[:,i]
+
     minibatch_size = len(normed_train_data)
     input_dimension = len(normed_train_data.columns)
-    print("output_dimension: {}".format(output_dimension))
+
+    print(f"output_dimension: {output_dimension}")
+
     Z = combined_train_data.values[:M, :].copy()
+    
     time_checkpoint1 = time.time()
+
+    # select kernel
     if kernel_type == "RBF+RBF":
-        k = gpflow.kernels.SquaredExponential(input_dim=input_dimension, active_dims=range(input_dimension), ARD=use_ard) \
-            + gpflow.kernels.SquaredExponential(input_dim=output_dimension, active_dims=range(input_dimension, input_dimension + output_dimension), ARD=use_ard)
+        print('\n\nselect kernel type RBF+RBF\n\n')
+
+        input_kernel = gpflow.kernels.SquaredExponential(
+            active_dims=range(input_dimension),
+            lengthscales=np.ones(input_dimension)
+        )
+        
+        output_kernel = gpflow.kernels.SquaredExponential(
+            active_dims=range(input_dimension, input_dimension + output_dimension),
+            lengthscales=np.ones(output_dimension)
+        )
+        
+        k = input_kernel + output_kernel
+        
     elif kernel_type == "RBF":
-        k = gpflow.kernels.SquaredExponential(input_dim=input_dimension, active_dims=range(input_dimension), ARD=use_ard)
+        print('\n\nselect kernel type RBF\n\n')
+        
+        k = gpflow.kernels.SquaredExponential(
+            active_dims=range(input_dimension),
+            lengthscales=np.ones(input_dimension)
+        )
+        
     elif kernel_type == "RBFY":
-        k = gpflow.kernels.SquaredExponential(input_dim=output_dimension, active_dims=range(input_dimension, input_dimension + output_dimension), ARD=use_ard)
-    if framework_variant == "GP_corrected" or framework_variant == "GP_corrected_inputOnly" or framework_variant == "GP_corrected_outputOnly":
-        m = gpflow.models.SVGP(combined_train_data.values, train_NN_errors.reshape(-1,1), kern=k, likelihood=gpflow.likelihoods.Gaussian(), Z=Z)#, minibatch_size=minibatch_size)
-    elif framework_variant == "GP" or framework_variant == "GP_inputOnly" or framework_variant == "GP_outputOnly":
-        m = gpflow.models.SVGP(combined_train_data.values, train_labels.reshape(-1,1), kern=k, likelihood=gpflow.likelihoods.Gaussian(), Z=Z)#, minibatch_size=minibatch_size)
+        print('\n\nselect kernel type RBFY\n\n')
+        
+        k = gpflow.kernels.SquaredExponential(
+            active_dims=range(input_dimension, input_dimension + output_dimension),
+            lengthscales=np.ones(input_dimension)
+        )
 
+
+    # select model / framework variant
+    if (framework_variant == "GP_corrected" or
+        framework_variant == "GP_corrected_inputOnly" or
+        framework_variant == "GP_corrected_outputOnly"):
+
+        X = combined_train_data.values
+        Y = train_NN_errors.reshape(-1, 1)
+        
+        m = gpflow.models.svgp.SVGP_deprecated(kernel=k,
+                                               likelihood=gpflow.likelihoods.Gaussian(),
+                                               inducing_variable=Z, num_latent_gps=Y.shape[1])
+        
+    elif (framework_variant == "GP" or
+         framework_variant == "GP_inputOnly" or
+         framework_variant == "GP_outputOnly"):
+
+        X = combined_train_data.values
+        Y = train_labels.reshape(-1, 1)
+
+        # In gpflow version 2.0, SVGP ported to SVGP_deprecated
+        m = gpflow.models.svgp.SVGP_deprecated(kernel=k,
+                                               likelihood=gpflow.likelihoods.Gaussian(),
+                                               inducing_variable=Z, num_latent_gps=Y.shape[1])
+
+    ############################ hyperparameter optimization #####################################
+
+    # Option 1: optimize hyperparameters for each RBF kernel seperately
     if kernel_type == "RBF+RBF" and separate_opt:
-        hyperparameter = (m.kern.kernels[0].lengthscales.value, m.kern.kernels[0].variance.value, m.kern.kernels[1].lengthscales.value, m.kern.kernels[1].variance.value, m.likelihood.variance.value)
+        hyperparameter = (m.kernel.kernels[0].lengthscales.numpy(),
+                          m.kernel.kernels[0].variance.numpy(),
+                          m.kernel.kernels[1].lengthscales.numpy(),
+                          m.kernel.kernels[1].variance.numpy(),
+                          m.likelihood.variance.numpy())
+        
         print(hyperparameter)
-        m.kern.kernels[1].variance = 0.0
-        m.kern.kernels[1].variance.trainable = False
-        m.kern.kernels[1].lengthscales.trainable = False
-        m.kern.kernels[0].variance = np.random.rand()
-        m.kern.kernels[0].lengthscales = np.random.rand(len(m.kern.kernels[0].lengthscales.value)) * 10.0
-        hyperparameter = (m.kern.kernels[0].lengthscales.value, m.kern.kernels[0].variance.value, m.kern.kernels[1].lengthscales.value, m.kern.kernels[1].variance.value, m.likelihood.variance.value)
-        print(hyperparameter)
-        opt = gpflow.train.ScipyOptimizer()
-        num_optimizer_iter = opt.minimize(m)
-        hyperparameter = (m.kern.kernels[0].lengthscales.value, m.kern.kernels[0].variance.value, m.kern.kernels[1].lengthscales.value, m.kern.kernels[1].variance.value, m.likelihood.variance.value)
-        print(hyperparameter)
-        m.kern.kernels[1].variance = np.random.rand()
-        m.kern.kernels[1].lengthscales = np.random.rand(len(m.kern.kernels[1].lengthscales.value)) * 10.0
-        m.kern.kernels[1].variance.trainable = True
-        m.kern.kernels[1].lengthscales.trainable = True
-        hyperparameter = (m.kern.kernels[0].lengthscales.value, m.kern.kernels[0].variance.value, m.kern.kernels[1].lengthscales.value, m.kern.kernels[1].variance.value, m.likelihood.variance.value)
-        print(hyperparameter)
-        opt = gpflow.train.ScipyOptimizer()
-        num_optimizer_iter = opt.minimize(m)
-        hyperparameter = (m.kern.kernels[0].lengthscales.value, m.kern.kernels[0].variance.value, m.kern.kernels[1].lengthscales.value, m.kern.kernels[1].variance.value, m.likelihood.variance.value)
-        print(hyperparameter)
-    elif kernel_type == "RBF+RBF":
-        m.kern.kernels[1].variance = np.random.rand()
-        m.kern.kernels[1].lengthscales = np.random.rand(len(m.kern.kernels[1].lengthscales.value)) * 10.0
-        m.kern.kernels[0].variance = np.random.rand()
-        m.kern.kernels[0].lengthscales = np.random.rand(len(m.kern.kernels[0].lengthscales.value)) * 10.0
-        opt = gpflow.train.ScipyOptimizer()
-        num_optimizer_iter = opt.minimize(m)
-    else:
-        opt = gpflow.train.ScipyOptimizer()
-        num_optimizer_iter = opt.minimize(m)
 
-    if kernel_type == "RBF+RBF":
-        hyperparameter = (m.kern.kernels[0].lengthscales.value, m.kern.kernels[0].variance.value, m.kern.kernels[1].lengthscales.value, m.kern.kernels[1].variance.value, m.likelihood.variance.value)
+        # optimize input kernel (kernel 0)
+
+        # in gpflow V2 have to use assign to assign Parameter values,
+        # and set_trainable to change trainable status
+
+        # m.kernel.kernels[1].variance = 0.0
+        m.kernel.kernels[1].variance.assign(1e-8)
+
+        # m.kernel.kernels[1].variance.trainable = False
+        # m.kernel.kernels[1].lengthscales.trainable = False 
+        gpflow.set_trainable(m.kernel.kernels[1].variance, False)
+        gpflow.set_trainable(m.kernel.kernels[1].lengthscales, False)
+
+        # m.kernel.kernels[0].variance = np.random.rand()
+        # m.kernel.kernels[0].lengthscales = np.random.rand(len(m.kernel.kernels[0].lengthscales.numpy())) * 10.0
+        m.kernel.kernels[0].variance.assign(np.random.rand())
+        
+        m.kernel.kernels[0].lengthscales.assign(
+            np.random.rand(len(m.kernel.kernels[0].lengthscales.numpy())) * 10.0
+        )
+
+        # have to call numpy() instead of value for gpflow V2
+        hyperparameter = (m.kernel.kernels[0].lengthscales.numpy(),
+                          m.kernel.kernels[0].variance.numpy(),
+                          m.kernel.kernels[1].lengthscales.numpy(),
+                          m.kernel.kernels[1].variance.numpy(),
+                          m.likelihood.variance.numpy())
+      
+        print(hyperparameter)
+
+        # In gpflow V 2.0, the way Scipy optimizer is used changed:
+        # opt = gpflow.train.ScipyOptimizer()
+        # num_optimizer_iter = opt.minimize(m)
+
+        opt = gpflow.optimizers.Scipy()
+        num_optimizer_iter = opt.minimize(
+            m.training_loss_closure(data=(X, Y)),
+            variables=m.trainable_variables,
+            options=dict(maxiter=1000)
+        )
+        
+        hyperparameter = (m.kernel.kernels[0].lengthscales.numpy(),
+                          m.kernel.kernels[0].variance.numpy(),
+                          m.kernel.kernels[1].lengthscales.numpy(),
+                          m.kernel.kernels[1].variance.numpy(),
+                          m.likelihood.variance.numpy())
+        
+        print(hyperparameter)
+
+        # optimize output kernel (kernel 1)
+
+        # m.kernel.kernels[1].variance = np.random.rand()
+        # m.kernel.kernels[1].lengthscales = np.random.rand(len(m.kernel.kernels[1].lengthscales.value)) * 10.0
+        
+        m.kernel.kernels[1].variance.assign(np.random.rand())
+        m.kernel.kernels[1].lengthscales.assign(
+            np.random.rand(len(m.kernel.kernels[1].lengthscales.numpy())) * 10.0
+        )
+        
+        # m.kernel.kernels[1].variance.trainable = True # FIXME 
+        # m.kernel.kernels[1].lengthscales.trainable = True # FIXME
+
+        gpflow.set_trainable(m.kernel.kernels[1].variance, True)
+        gpflow.set_trainable(m.kernel.kernels[1].lengthscales, True)
+        
+        hyperparameter = (m.kernel.kernels[0].lengthscales.numpy(),
+                          m.kernel.kernels[0].variance.numpy(),
+                          m.kernel.kernels[1].lengthscales.numpy(),
+                          m.kernel.kernels[1].variance.numpy(),
+                          m.likelihood.variance.numpy())
+        
+        print(hyperparameter)
+
+        # In gpflow V 2.0, the way Scipy optimizer is used changed:
+        # opt = gpflow.train.ScipyOptimizer()
+        # num_optimizer_iter = opt.minimize(m)
+
+        opt = gpflow.optimizers.Scipy()
+        num_optimizer_iter = opt.minimize(
+            m.training_loss_closure(data=(X, Y)),
+            variables=m.trainable_variables,
+            options=dict(maxiter=1000)
+        )
+        
+        hyperparameter = (m.kernel.kernels[0].lengthscales.numpy(),
+                          m.kernel.kernels[0].variance.numpy(),
+                          m.kernel.kernels[1].lengthscales.numpy(),
+                          m.kernel.kernels[1].variance.numpy(),
+                          m.likelihood.variance.numpy())
+        
+        print(hyperparameter)
+
+
+    # Option 2: optimize kernels together
+    elif kernel_type == "RBF+RBF":
+
+        print(m.kernel.kernels[1].lengthscales.numpy())
+                
+        m.kernel.kernels[1].variance.assign(np.random.rand())
+        m.kernel.kernels[1].lengthscales.assign(np.random.rand(len(m.kernel.kernels[1].lengthscales.numpy())) * 10.0 )
+        
+        m.kernel.kernels[0].variance.assign(np.random.rand()) 
+        m.kernel.kernels[0].lengthscales.assign( np.random.rand(len(m.kernel.kernels[0].lengthscales.numpy())) * 10.0 )
+
+        # print(m.kernel.kernels[1].lengthscales)
+        
+        # print(f'k1 ard?={m.kernel.kernels[0].ard}')
+        # print(f'k1 ard?={m.kernel.kernels[1].ard}')
+
+        # In gpflow V 2.0, the way Scipy optimizer is used changed:        
+        # opt = gpflow.train.ScipyOptimizer()
+        # num_optimizer_iter = opt.minimize(m)
+
+        opt = gpflow.optimizers.Scipy()
+        num_optimizer_iter = opt.minimize(
+            m.training_loss_closure(data=(X, Y)),
+            variables=m.trainable_variables,
+            options=dict(maxiter=1000)
+        )
+        
     else:
-        hyperparameter = (m.kern.lengthscales.value, m.kern.variance.value, m.likelihood.variance.value)
+        # In gpflow V 2.0, the way Scipy optimizer is used changed:
+        # opt = gpflow.train.ScipyOptimizer()
+        # num_optimizer_iter = opt.minimize(m)
+
+        opt = gpflow.optimizers.Scipy()
+        num_optimizer_iter = opt.minimize(
+            m.training_loss_closure(data=(X, Y)),
+            variables=m.trainable_variables,
+            options=dict(maxiter=1000)
+        )
+
+
+    # RBF+RBF has 2 kernels, need to get var/lengthscales for each kernel.
+    if kernel_type == "RBF+RBF":
+        hyperparameter = (m.kernel.kernels[0].lengthscales.numpy(),
+                          m.kernel.kernels[0].variance.numpy(),
+                          m.kernel.kernels[1].lengthscales.numpy(),
+                          m.kernel.kernels[1].variance.numpy(),
+                          m.likelihood.variance.numpy())
+    # single kernel: 
+    else:
+        hyperparameter = (m.kernel.lengthscales.numpy(),
+                          m.kernel.variance.numpy(),
+                          m.likelihood.variance.numpy())
+
     mean, var = m.predict_y(combined_test_data.values)
+
+    # mean, var returned as gpflow Parameter object, reassign as numpy
+    # array for further analysis
+    mean = mean.numpy()
+    var = var.numpy()
+    
     time_checkpoint2 = time.time()
     computation_time = time_checkpoint2-time_checkpoint1
-    print("computation_time_{}: {}".format(framework_variant, time_checkpoint2-time_checkpoint1))
+    print(f"computation_time_{framework_variant}: {time_checkpoint2-time_checkpoint1}")
+    
     if framework_variant == "GP_corrected" or framework_variant == "GP_corrected_inputOnly" or framework_variant == "GP_corrected_outputOnly":
         test_final_predictions = test_NN_predictions + mean.reshape(-1)
+
     elif framework_variant == "GP" or framework_variant == "GP_inputOnly" or framework_variant == "GP_outputOnly":
         test_final_predictions = mean.reshape(-1)
 
     MAE = mean_absolute_error(test_labels, test_final_predictions)
-    print("test mae after {}: {}".format(framework_variant, MAE))
+    print(f"test mae after {framework_variant}: {MAE}")
 
+    # count number of points within 95 pct interval
     num_within_interval = 0
     for i in range(len(test_labels)):
         if test_labels[i] <= test_final_predictions[i] + 1.96 * np.sqrt(var.reshape(-1)[i]) and test_labels[i] >= test_final_predictions[i] - 1.96 * np.sqrt(var.reshape(-1)[i]):
             num_within_interval += 1
+            
     PCT_within95Interval = float(num_within_interval)/len(test_labels)
-    print("percentage of test points within 95 percent confidence interval ({}): {}".format(framework_variant, PCT_within95Interval))
+    print(f"percentage of test points within 95 percent confidence interval ({framework_variant}): {PCT_within95Interval}")
+
+    # count number of points within 90 pct interval
     num_within_interval = 0
     for i in range(len(test_labels)):
         if test_labels[i] <= test_final_predictions[i] + 1.65 * np.sqrt(var.reshape(-1)[i]) and test_labels[i] >= test_final_predictions[i] - 1.65 * np.sqrt(var.reshape(-1)[i]):
             num_within_interval += 1
+            
     PCT_within90Interval = float(num_within_interval)/len(test_labels)
-    print("percentage of test points within 90 percent confidence interval ({}): {}".format(framework_variant, PCT_within90Interval))
+    print(f"percentage of test points within 90 percent confidence interval ({framework_variant}): {PCT_within90Interval}")
     num_within_interval = 0
+
+    # count number of points within 68 pct interval
     for i in range(len(test_labels)):
         if test_labels[i] <= test_final_predictions[i] + 1.0 * np.sqrt(var.reshape(-1)[i]) and test_labels[i] >= test_final_predictions[i] - 1.0 * np.sqrt(var.reshape(-1)[i]):
             num_within_interval += 1
+            
     PCT_within68Interval = float(num_within_interval)/len(test_labels)
-    print("percentage of test points within 68 percent confidence interval ({}): {}".format(framework_variant, PCT_within68Interval))
+    print(f"percentage of test points within 68 percent confidence interval ({framework_variant}): {PCT_within68Interval}")
+
     mean = mean.reshape(-1)
     var = var.reshape(-1)
+
     print(hyperparameter)
 
+    # get mean/variance for training data
     mean_train, var_train = m.predict_y(combined_train_data.values)
+
+    mean_train = mean_train.numpy()
+    var_train = var_train.numpy()
+    
     mean_train = mean_train.reshape(-1)
     var_train = var_train.reshape(-1)
 
