@@ -16,7 +16,7 @@ from tensorflow.keras import layers
 import pickle
 import os
 import time
-from util_tfv2 import load_UCI121, dataset_read, RIO_MRBF_multiple_running
+from util import load_UCI121, dataset_read, RIO_MRBF_multiple_running
 import numpy as np
 from sklearn.metrics import mean_absolute_error
 import scipy
