@@ -197,56 +197,41 @@ print('args:')
 for k, v in vars(args).items():
   print(f'{k}: {v}')
 print()
-  
-RUNS = 1
 
-model = tf.keras.models.load_model(os.path.join(args.input_dir, 'model.keras'))
-print()
+os.makedirs('Results', exist_ok=True)
+
+RUNS = 1
 
 # load data
 normed_train_data, train_labels = load_data(args.input_dir, 'train_meta') 
 normed_valid_data, valid_labels = load_data(args.input_dir, 'val')
 normed_test_data, test_labels = load_data(args.input_dir, 'test')
 
-# print('!!!!!! FIXME !!!!!')
-# print('USING SUBSET DATA')
+print('!!!!!! FIXME !!!!!')
+print('USING SUBSET DATA')
 
-# normed_train_data, train_labels = normed_train_data[:1000], train_labels[:1000]
-# normed_valid_data, valid_labels = normed_valid_data[:1000], valid_labels[:1000]
-# normed_test_data, test_labels = normed_test_data[:1000], test_labels[:1000]
+normed_train_data, train_labels = normed_train_data[:1000], train_labels[:1000]
+normed_valid_data, valid_labels = normed_valid_data[:1000], valid_labels[:1000]
+normed_test_data, test_labels = normed_test_data[:1000], test_labels[:1000]
 
-# print('!!!!!! FIXME !!!!!')
-
-# FIXME: debug:
-train_acc = model.evaluate(normed_train_data, train_labels, verbose=0, batch_size=BATCH_SIZE)[1]
-valid_acc = model.evaluate(normed_valid_data, valid_labels, verbose=0, batch_size=BATCH_SIZE)[1]
-test_acc = model.evaluate(normed_test_data, test_labels, verbose=0, batch_size=BATCH_SIZE)[1]
-
-print(f'train result: {train_acc:.4%}', end='\n\n')
-print(f'validation result: {valid_acc:.4%}', end='\n\n')
-print(f'test result: {test_acc:.4%}', end='\n\n')
+train_NN_predictions_softmax = np.load(os.path.join(args.input_dir,
+                                                      'train_meta_predictions_softmax.npy'))[:1000]
+  
+valid_NN_predictions_softmax = np.load(os.path.join(args.input_dir,
+                                                      'val_predictions_softmax.npy'))[:1000]
+  
+test_NN_predictions_softmax = np.load(os.path.join(args.input_dir,
+                                                      'test_predictions_softmax.npy'))[:1000]
+  
+train_NN_predictions = np.load(os.path.join(args.input_dir, 'train_meta_predictions.npy'))[:1000]
+valid_NN_predictions = np.load(os.path.join(args.input_dir, 'val_predictions.npy'))[:1000]
+test_NN_predictions = np.load(os.path.join(args.input_dir, 'test_predictions.npy'))[:1000] 
+ 
+print('!!!!!! FIXME !!!!!')
 
 num_class = np.max(train_labels)+1
 
 print('number of classes:', num_class, end='\n\n')
-
-probability_model = tf.keras.Sequential([model, tf.keras.layers.Softmax()])
-
-probability_model.compile(metrics=['accuracy'])
-
-# FIXME: debug:
-train_acc = probability_model.evaluate(normed_train_data, train_labels, verbose=0,
-                                       batch_size=BATCH_SIZE)[1]
-
-valid_acc = probability_model.evaluate(normed_valid_data, valid_labels, verbose=0,
-                                       batch_size=BATCH_SIZE)[1]
-
-test_acc = probability_model.evaluate(normed_test_data, test_labels, verbose=0,
-                                      batch_size=BATCH_SIZE)[1]
-
-print(f'train result (P model): {train_acc:.4%}', end='\n\n')
-print(f'validation result (P model): {valid_acc:.4%}', end='\n\n')
-print(f'test result (P model): {test_acc:.4%}', end='\n\n')
 
 for run in range(RUNS):
   print("run{} start".format(run))
@@ -255,20 +240,7 @@ for run in range(RUNS):
   tf.config.experimental.enable_op_determinism()
   os.environ['PYTHONHASHSEED'] = str(run)
   keras.utils.set_random_seed(run)
-
-  train_NN_predictions_softmax = probability_model.predict(normed_train_data, verbose=0,
-                                                           batch_size=BATCH_SIZE)
-  
-  valid_NN_predictions_softmax = probability_model.predict(normed_valid_data, verbose=0,
-                                                           batch_size=BATCH_SIZE)
-  
-  test_NN_predictions_softmax = probability_model.predict(normed_test_data, verbose=0,
-                                                          batch_size=BATCH_SIZE)
-  
-  train_NN_predictions = model.predict(normed_train_data, verbose=0, batch_size=BATCH_SIZE)
-  valid_NN_predictions = model.predict(normed_valid_data, verbose=0, batch_size=BATCH_SIZE)
-  test_NN_predictions = model.predict(normed_test_data, verbose=0, batch_size=BATCH_SIZE)
-  
+    
   one_hot_train_labels = one_hot_encoding(train_labels.reshape(-1), num_class)
   one_hot_valid_labels = one_hot_encoding(valid_labels.reshape(-1), num_class)
   one_hot_test_labels = one_hot_encoding(test_labels.reshape(-1), num_class)
@@ -332,11 +304,9 @@ for run in range(RUNS):
   exp_info = {}
   exp_info["valid_labels"] = valid_labels
   exp_info["valid_NN_predictions"] = valid_NN_predictions
-  exp_info["NN_valid_acc"] = valid_acc
-
+  
   exp_info["test_labels"] = test_labels
   exp_info["test_NN_predictions"] = test_NN_predictions
-  exp_info["NN_test_acc"] = test_acc
   
   result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_run{}.pkl'.format(args.base_model, run))
   with open(result_file_name, 'wb') as result_file:
@@ -358,9 +328,9 @@ for run in range(RUNS):
   for trial in range(trial_num):
 
     # FIXME: debug
-    # if trial > 1:
-    #   print(f'WARNING: skipping trial {trial}')
-    #   continue
+    if trial > 2:
+      print(f'WARNING: skipping trial {trial}')
+      continue
     
     exp_result = run_RIO_classification(framework_variant, kernel_type, M, rio_data,
                                         rio_setups, algo_spec)
@@ -380,6 +350,4 @@ for run in range(RUNS):
     result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}_trial{}.pkl'.format(args.base_model, framework_variant, kernel_type, algo_spec+add_info, run, trial))
     with open(result_file_name, 'wb') as result_file:
       pickle.dump(exp_result, result_file)
-
-    del exp_result
       
