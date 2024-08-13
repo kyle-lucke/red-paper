@@ -374,9 +374,6 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
     # mean_train, var_train = mean_train.numpy(), var_train.numpy()
     
     # mean_train, var_train = mean_train.reshape(-1), var_train.reshape(-1)
-
-    del m
-    del opt
     
     return dict(MAE_test=MAE_test,
                 MAE_valid=MAE_valid,
