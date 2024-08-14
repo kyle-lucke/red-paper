@@ -334,16 +334,22 @@ for run in range(RUNS):
   trial_num = 10
   max_difference = -100
   for trial in range(trial_num):
+
+    # FIXME: debug
+    if trial > 2:
+      print(f'WARNING: skipping trial {trial}')
+      continue
+
     exp_result = run_RIO_classification(framework_variant, kernel_type, M, rio_data, rio_setups, algo_spec)
     
     if exp_result["mean_correct_valid"] - exp_result["mean_incorrect_valid"] > max_difference:
       max_difference = exp_result["mean_correct_valid"] - exp_result["mean_incorrect_valid"]
-      result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}.pkl'.format(dataset_name, framework_variant, kernel_type, algo_spec+add_info, run))
+      result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}.pkl'.format(args.base_model, framework_variant, kernel_type, algo_spec+add_info, run))
       
       with open(result_file_name, 'wb') as result_file:
         pickle.dump(exp_result, result_file)
 
-    result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}_trail{}.pkl'.format(dataset_name, framework_variant, kernel_type, algo_spec+add_info, run, trial))
+    result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}_trail{}.pkl'.format(args.base_model, framework_variant, kernel_type, algo_spec+add_info, run, trial))
     with open(result_file_name, 'wb') as result_file:
       pickle.dump(exp_result, result_file)
   

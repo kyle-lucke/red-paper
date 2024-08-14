@@ -40,14 +40,6 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
                                               test_NN_predictions_all,
 
                                               M, use_ard, scale_array, separate_opt, batch_size):
-
-    print('!!!!! FIXME !!!!!')
-    print("REPLACE 'TEST' WITH 'VALID'")
-    print('!!!!! FIXME !!!!!', end='\n\n')
-
-    print('!!!!! FIXME !!!!!')
-    print("ADD TEST DATA'")
-    print('!!!!! FIXME !!!!!', end='\n\n')
         
     train_NN_errors = (train_labels - train_NN_predictions)
     
@@ -83,9 +75,9 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
 
     print('FIXME: using 10 iters')
     scipy_options = dict(maxiter=10, disp=False)
-    track_loss_history = True
+    track_loss_history = False
     
-    print(Z.shape)
+    # print(Z.shape)
     
     time_checkpoint1 = time.time()
 
@@ -148,8 +140,8 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
 
     ############################ hyperparameter optimization #####################################
 
-    print(f'X dtype: {X.dtype}')
-    print(f'Y dtype: {Y.dtype}')
+    # print(f'X dtype: {X.dtype}')
+    # print(f'Y dtype: {Y.dtype}')
     
     # Option 1: optimize hyperparameters for each RBF kernel seperately
     if kernel_type == "RBF+RBF" and separate_opt:
@@ -159,7 +151,7 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
                           m.kernel.kernels[1].variance.numpy(),
                           m.likelihood.variance.numpy())
         
-        print(hyperparameter)
+        # print(hyperparameter)
 
         # optimize input kernel (kernel 0)
 
@@ -167,6 +159,9 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
         # and set_trainable to change trainable status
 
         # m.kernel.kernels[1].variance = 0.0
+
+        # cannot use zero in gpflow V2, breaks things. So use small
+        # value instead
         m.kernel.kernels[1].variance.assign(1e-8)
 
         # m.kernel.kernels[1].variance.trainable = False
@@ -189,7 +184,7 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
                           m.kernel.kernels[1].variance.numpy(),
                           m.likelihood.variance.numpy())
       
-        print(hyperparameter)
+        # print(hyperparameter)
 
         # In gpflow V 2.0, the way Scipy optimizer is used changed:
         # opt = gpflow.train.ScipyOptimizer()
@@ -209,7 +204,7 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
                           m.kernel.kernels[1].variance.numpy(),
                           m.likelihood.variance.numpy())
         
-        print(hyperparameter)
+        # print(hyperparameter)
 
         # optimize output kernel (kernel 1)
 
@@ -233,7 +228,7 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
                           m.kernel.kernels[1].variance.numpy(),
                           m.likelihood.variance.numpy())
         
-        print(hyperparameter)
+        # print(hyperparameter)
 
         # In gpflow V 2.0, the way Scipy optimizer is used changed:
         # opt = gpflow.train.ScipyOptimizer()
@@ -253,13 +248,13 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
                           m.kernel.kernels[1].variance.numpy(),
                           m.likelihood.variance.numpy())
         
-        print(hyperparameter)
+        # print(hyperparameter)
 
 
     # Option 2: optimize kernels together
     elif kernel_type == "RBF+RBF":
 
-        print(m.kernel.kernels[1].lengthscales.numpy())
+        # print(m.kernel.kernels[1].lengthscales.numpy())
                 
         m.kernel.kernels[1].variance.assign(np.random.rand())
         m.kernel.kernels[1].lengthscales.assign(np.random.rand(len(m.kernel.kernels[1].lengthscales.numpy())) * 10.0 )
@@ -320,7 +315,7 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
         
     time_checkpoint2 = time.time()
     computation_time = time_checkpoint2-time_checkpoint1
-    print(f"computation_time_{framework_variant}: {time_checkpoint2-time_checkpoint1}")
+    # print(f"computation_time_{framework_variant}: {time_checkpoint2-time_checkpoint1}")
     
     if framework_variant == "GP_corrected" or framework_variant == "GP_corrected_inputOnly" or framework_variant == "GP_corrected_outputOnly":
         valid_final_predictions = valid_NN_predictions + mean_valid.reshape(-1)
@@ -366,14 +361,14 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
     mean_valid, var_valid = mean_valid.reshape(-1), var_valid.reshape(-1)
     mean_test, var_test = mean_test.reshape(-1), var_test.reshape(-1)
 
-    print(hyperparameter)
+    # print(hyperparameter)
 
     # get mean/variance for training data
-    # mean_train, var_train = m.predict_y(combined_train_data)
+    mean_train, var_train = m.predict_y(combined_train_data)
 
-    # mean_train, var_train = mean_train.numpy(), var_train.numpy()
+    mean_train, var_train = mean_train.numpy(), var_train.numpy()
     
-    # mean_train, var_train = mean_train.reshape(-1), var_train.reshape(-1)
+    mean_train, var_train = mean_train.reshape(-1), var_train.reshape(-1)
     
     return dict(MAE_test=MAE_test,
                 MAE_valid=MAE_valid,
@@ -392,7 +387,7 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
                 hyperparameter=hyperparameter,
                 # num_optimizer_iter=num_optimizer_iter,
 
-                # mean_train=mean_train,
-                # var_train=var_train,
+                mean_train=mean_train,
+                var_train=var_train,
                 )
 
