@@ -24,6 +24,23 @@ M = 50
 
 BATCH_SIZE = 128
 
+def build_regression_model(layer_width=128, num_class=10):
+  model = keras.Sequential([
+    layers.Dense(layer_width, activation=tf.nn.relu, input_shape=[num_class]),
+    layers.Dropout(rate=0.2),
+    layers.Dense(layer_width, activation=tf.nn.relu),
+    layers.Dropout(rate=0.2),
+    layers.BatchNormalization(),
+    layers.Dense(1)
+  ])
+
+  optimizer = tf.keras.optimizers.RMSprop(0.001)
+
+  model.compile(loss='mean_squared_error',
+                optimizer=optimizer,
+                metrics=['mean_squared_error'])
+  return model
+
 def load_data(input_dir, split):
   inputs = np.load( os.path.join(input_dir, f'{split}_inputs.npy') )
   labels = np.load( os.path.join(input_dir, f'{split}_labels.npy') )
@@ -258,7 +275,7 @@ for run in range(RUNS):
   tf.config.experimental.enable_op_determinism()
   os.environ['PYTHONHASHSEED'] = str(run)
   keras.utils.set_random_seed(run)
-    
+  
   one_hot_train_labels = one_hot_encoding(train_labels.reshape(-1), num_class)
   one_hot_valid_labels = one_hot_encoding(valid_labels.reshape(-1), num_class)
   one_hot_test_labels = one_hot_encoding(test_labels.reshape(-1), num_class)
@@ -280,7 +297,7 @@ for run in range(RUNS):
         scale_array[k] = scale_correct
       else:
         scale_array[k] = scale_incorrect
-
+        
   rio_data = {}
   
   rio_data["normed_train_data"] = normed_train_data
@@ -392,4 +409,58 @@ for run in range(RUNS):
     result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}_trial{}.pkl'.format(args.base_model, framework_variant, kernel_type, algo_spec+add_info, run, trial))
     with open(result_file_name, 'wb') as result_file:
       pickle.dump(exp_result, result_file)
+
+
+  # Introspection-Net
+  moderator_train_labels = np.zeros(len(rio_data["train_check"]))
+  for i in range(len(rio_data["train_check"])):
+    if rio_data["train_check"].reshape(-1)[i]:
+      moderator_train_labels[i] = 1
+
+  moderator_valid_labels = np.zeros(len(rio_data["valid_check"]))
+  for i in range(len(rio_data["valid_check"])):
+    if rio_data["valid_check"].reshape(-1)[i]:
+      moderator_valid_labels[i] = 1
       
+  moderator_test_labels = np.zeros(len(rio_data["test_check"]))
+  for i in range(len(rio_data["test_check"])):
+    if rio_data["test_check"].reshape(-1)[i]:
+      moderator_test_labels[i] = 1
+
+  moderator_train_data = train_NN_predictions
+  moderator_valid_data = valid_NN_predictions
+  moderator_test_data = test_NN_predictions
+
+  model = build_regression_model(layer_width=128, num_class=10)
+
+  checkpoint_filepath = '/tmp/ckpt/checkpoint.model.keras'
+  model_checkpoint_callback = keras.callbacks.ModelCheckpoint(
+    filepath=checkpoint_filepath,
+    monitor='val_loss',
+    save_best_only=True)
+  
+  history = model.fit(moderator_train_data, moderator_train_labels, epochs=60,
+                      validation_data=(moderator_valid_data, moderator_valid_labels),
+                      verbose=2, callbacks=[model_checkpoint_callback],
+                      batch_size=BATCH_SIZE)
+
+  # load best model:
+  model.load_weights(checkpoint_filepath)
+
+  # debug:
+  val_res = model.evaluate(moderator_valid_data, moderator_valid_labels, batch_size=BATCH_SIZE, verbose=0)
+
+  print(val_res)
+  
+  moderator_train_NN_predictions = model.predict(moderator_train_data, batch_size=BATCH_SIZE, verbose=0)
+  moderator_valid_NN_predictions = model.predict(moderator_valid_data, batch_size=BATCH_SIZE, verbose=0)
+  moderator_test_NN_predictions = model.predict(moderator_test_data, batch_size=BATCH_SIZE, verbose=0)
+  
+  exp_info = {}
+  exp_info["moderator_train_NN_predictions"] = moderator_train_NN_predictions
+  exp_info["moderator_valid_NN_predictions"] = moderator_valid_NN_predictions
+  exp_info["moderator_test_NN_predictions"] = moderator_test_NN_predictions
+
+  result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_info_Introspection-Net_run{}.pkl'.format(args.base_model, run))
+  with open(result_file_name, 'wb') as result_file:
+    pickle.dump(exp_info, result_file)
