@@ -67,14 +67,14 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
     combined_valid_data = combined_valid_data.astype(np.float64)
     combined_test_data = combined_test_data.astype(np.float64)
     
-    print(combined_train_data.shape)
-    print(combined_valid_data.shape)
-    print(combined_test_data.shape)
+    # print(combined_train_data.shape)
+    # print(combined_valid_data.shape)
+    # print(combined_test_data.shape)
     
     Z = combined_train_data[:M, :].copy()
 
-    print('FIXME: using 10 iters')
-    scipy_options = dict(maxiter=10, disp=False)
+    # print('FIXME: using 10 iters')
+    scipy_options = dict(maxiter=1000, disp=False)
     track_loss_history = False
     
     # print(Z.shape)

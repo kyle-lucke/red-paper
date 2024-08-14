@@ -143,8 +143,8 @@ def run_RIO_classification(framework_variant, kernel_type, M, rio_data, rio_setu
         res['mean_valid'] = res['mean_valid']+valid_NN_predictions_class
         res['mean_test'] = res['mean_test']+test_NN_predictions_class
 
-    print("mean of True: {}".format(np.mean(mean_test[np.where(rio_data["test_check"])])))
-    print("mean of False: {}".format(np.mean(mean_test[np.where(rio_data["test_check"] == False)])))
+    print("mean of True: {}".format(np.mean(res['mean_test'][np.where(rio_data["test_check"])])))
+    print("mean of False: {}".format(np.mean(res['mean_test'][np.where(rio_data["test_check"] == False)])))
 
     exp_result = {}
         
@@ -355,7 +355,7 @@ for run in range(RUNS):
       with open(result_file_name, 'wb') as result_file:
         pickle.dump(exp_result, result_file)
 
-    result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}_trail{}.pkl'.format(args.base_model, framework_variant, kernel_type, algo_spec+add_info, run, trial))
+    result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}_trial{}.pkl'.format(args.base_model, framework_variant, kernel_type, algo_spec+add_info, run, trial))
     with open(result_file_name, 'wb') as result_file:
       pickle.dump(exp_result, result_file)
   
