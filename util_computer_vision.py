@@ -385,8 +385,8 @@ def RIO_MRBF_multiple_running_computer_vision(framework_variant,
                 mean_valid=mean_valid,
                 var_valid=var_valid,
 
-                mean_test=mean_test,
-                var_test=var_test,
+                mean_test=mean_test, # formerly: mean
+                var_test=var_test, # formerly: var
 
                 # computation_time=computation_time,
                 hyperparameter=hyperparameter,
