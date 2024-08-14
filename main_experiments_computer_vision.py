@@ -138,9 +138,11 @@ def run_RIO_classification(framework_variant, kernel_type, M, rio_data, rio_setu
 
     # apply correction for framework variants
     if framework_variant == "GP_corrected" or framework_variant == "GP_corrected_inputOnly" or framework_variant == "GP_corrected_outputOnly" or algo_spec == "moderator_residual_target":
-        
-        mean_test = res['mean_test']+test_NN_predictions_class
-            
+
+        res['mean_train'] = res['mean_train']+train_NN_predictions_class
+        res['mean_valid'] = res['mean_valid']+valid_NN_predictions_class
+        res['mean_test'] = res['mean_test']+test_NN_predictions_class
+
     print("mean of True: {}".format(np.mean(mean_test[np.where(rio_data["test_check"])])))
     print("mean of False: {}".format(np.mean(mean_test[np.where(rio_data["test_check"] == False)])))
 
@@ -335,15 +337,19 @@ for run in range(RUNS):
   max_difference = -100
   for trial in range(trial_num):
 
-    # FIXME: debug
-    if trial > 2:
-      print(f'WARNING: skipping trial {trial}')
-      continue
+    # # FIXME: debug
+    # if trial > 2:
+    #   print(f'WARNING: skipping trial {trial}')
+    #   continue
 
     exp_result = run_RIO_classification(framework_variant, kernel_type, M, rio_data, rio_setups, algo_spec)
     
     if exp_result["mean_correct_valid"] - exp_result["mean_incorrect_valid"] > max_difference:
+
+      print(f'\n\nMax difference improved from: {max_difference} to {exp_result["mean_correct_valid"] - exp_result["mean_incorrect_valid"]}.\nSaving results to {result_file_name}', end='\n\n')
+
       max_difference = exp_result["mean_correct_valid"] - exp_result["mean_incorrect_valid"]
+      
       result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}.pkl'.format(args.base_model, framework_variant, kernel_type, algo_spec+add_info, run))
       
       with open(result_file_name, 'wb') as result_file:
@@ -363,10 +369,10 @@ for run in range(RUNS):
   
   for trial in range(trial_num):
 
-    # FIXME: debug
-    if trial > 2:
-      print(f'WARNING: skipping trial {trial}')
-      continue
+    # # FIXME: debug
+    # if trial > 2:
+    #   print(f'WARNING: skipping trial {trial}')
+    #   continue
     
     exp_result = run_RIO_classification(framework_variant, kernel_type, M, rio_data,
                                         rio_setups, algo_spec)
