@@ -207,27 +207,44 @@ normed_train_data, train_labels = load_data(args.input_dir, 'train_meta')
 normed_valid_data, valid_labels = load_data(args.input_dir, 'val')
 normed_test_data, test_labels = load_data(args.input_dir, 'test')
 
-print('!!!!!! FIXME !!!!!')
-print('USING SUBSET DATA')
-
-normed_train_data, train_labels = normed_train_data[:1000], train_labels[:1000]
-normed_valid_data, valid_labels = normed_valid_data[:1000], valid_labels[:1000]
-normed_test_data, test_labels = normed_test_data[:1000], test_labels[:1000]
-
 train_NN_predictions_softmax = np.load(os.path.join(args.input_dir,
-                                                      'train_meta_predictions_softmax.npy'))[:1000]
+                                                      'train_meta_predictions_softmax.npy'))
   
 valid_NN_predictions_softmax = np.load(os.path.join(args.input_dir,
-                                                      'val_predictions_softmax.npy'))[:1000]
+                                                      'val_predictions_softmax.npy'))
   
 test_NN_predictions_softmax = np.load(os.path.join(args.input_dir,
-                                                      'test_predictions_softmax.npy'))[:1000]
+                                                      'test_predictions_softmax.npy'))
   
-train_NN_predictions = np.load(os.path.join(args.input_dir, 'train_meta_predictions.npy'))[:1000]
-valid_NN_predictions = np.load(os.path.join(args.input_dir, 'val_predictions.npy'))[:1000]
-test_NN_predictions = np.load(os.path.join(args.input_dir, 'test_predictions.npy'))[:1000] 
+train_NN_predictions = np.load(os.path.join(args.input_dir, 'train_meta_predictions.npy'))
+valid_NN_predictions = np.load(os.path.join(args.input_dir, 'val_predictions.npy'))
+test_NN_predictions = np.load(os.path.join(args.input_dir, 'test_predictions.npy'))
+
+# print('!!!!!! FIXME !!!!!')
+# print('USING SUBSET DATA')
+
+# normed_train_data, train_labels = normed_train_data[:1000], train_labels[:1000]
+# normed_valid_data, valid_labels = normed_valid_data[:1000], valid_labels[:1000]
+# normed_test_data, test_labels = normed_test_data[:1000], test_labels[:1000]
+
+# train_NN_predictions_softmax = train_NN_predictions_softmax[:1000]
+  
+# valid_NN_predictions_softmax = valid_NN_predictions_softmax[:1000]
+  
+# test_NN_predictions_softmax = test_NN_predictions_softmax[:1000]
+  
+# train_NN_predictions = train_NN_predictions[:1000]
+# valid_NN_predictions = valid_NN_predictions[:1000]
+# test_NN_predictions = test_NN_predictions[:1000] 
  
-print('!!!!!! FIXME !!!!!')
+# print('!!!!!! FIXME !!!!!')
+
+valid_acc = np.mean(np.argmax(valid_NN_predictions, -1) == valid_labels)
+test_acc = np.mean(np.argmax(test_NN_predictions, -1) == test_labels)
+
+print('val acc:', valid_acc)
+print('test acc:', test_acc, end='\n\n', flush=True)
+
 
 num_class = np.max(train_labels)+1
 
