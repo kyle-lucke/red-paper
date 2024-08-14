@@ -157,8 +157,8 @@ def run_RIO_classification(framework_variant, kernel_type, M, rio_data, rio_setu
     exp_result["hyperparameter"] = res['hyperparameter']
     # exp_result["num_optimizer_iter"] = res['num_optimizer_iter']
 
-    # exp_result["mean_train"] = res['mean_train']
-    # exp_result["var_train"] = res['var_train']
+    exp_result["mean_train"] = res['mean_train']
+    exp_result["var_train"] = res['var_train']
 
     exp_result["mean_valid"] = res['mean_valid']
     exp_result["var_valid"] = res['var_valid']
@@ -166,8 +166,8 @@ def run_RIO_classification(framework_variant, kernel_type, M, rio_data, rio_setu
     exp_result["mean_test"] = res['mean_test']
     exp_result["var_test"] = res['var_test']
     
-    # exp_result["train_labels"] = rio_data["train_labels"].reshape(-1)
-    # exp_result["train_NN_predictions"] = rio_data["train_NN_predictions"]
+    exp_result["train_labels"] = rio_data["train_labels"].reshape(-1)
+    exp_result["train_NN_predictions"] = rio_data["train_NN_predictions"]
     
     exp_result["valid_labels"] = rio_data["valid_labels"].reshape(-1)
     exp_result["valid_NN_predictions"] = rio_data["valid_NN_predictions"]
@@ -175,8 +175,8 @@ def run_RIO_classification(framework_variant, kernel_type, M, rio_data, rio_setu
     exp_result["test_labels"] = rio_data["test_labels"].reshape(-1)
     exp_result["test_NN_predictions"] = rio_data["test_NN_predictions"]
     
-    # exp_result["mean_correct_train"] = np.mean(res['mean_train'][np.where(rio_data["train_check"])])
-    # exp_result["mean_incorrect_train"] = np.mean(res['mean_train'][np.where(rio_data["train_check"] == False)])
+    exp_result["mean_correct_train"] = np.mean(res['mean_train'][np.where(rio_data["train_check"])])
+    exp_result["mean_incorrect_train"] = np.mean(res['mean_train'][np.where(rio_data["train_check"] == False)])
 
     exp_result["mean_correct_valid"] = np.mean(res['mean_valid'][np.where(rio_data["valid_check"])])
     exp_result["mean_incorrect_valid"] = np.mean(res['mean_valid'][np.where(rio_data["valid_check"] == False)])
@@ -245,7 +245,6 @@ test_acc = np.mean(np.argmax(test_NN_predictions, -1) == test_labels)
 print('val acc:', valid_acc)
 print('test acc:', test_acc, end='\n\n', flush=True)
 
-
 num_class = np.max(train_labels)+1
 
 print('number of classes:', num_class, end='\n\n')
@@ -310,13 +309,11 @@ for run in range(RUNS):
 
   rio_data["test_check"] = (rio_data["test_labels"].reshape(-1)==
                              np.argmax(rio_data["test_NN_predictions"], axis=1))
-
     
   rio_setups = {}
   rio_setups["use_ard"] = True
   rio_setups["scale_array"] = scale_array
   rio_setups["separate_opt"] = False
-
 
   exp_info = {}
   exp_info["valid_labels"] = valid_labels
@@ -331,17 +328,33 @@ for run in range(RUNS):
 
   algo_spec = "moderator_residual_target"
   add_info = ""
-
+  
   kernel_type = "RBF+RBF"
   framework_variant = "GP_corrected"
+  trial_num = 10
+  max_difference = -100
+  for trial in range(trial_num):
+    exp_result = run_RIO_classification(framework_variant, kernel_type, M, rio_data, rio_setups, algo_spec)
+    
+    if exp_result["mean_correct_valid"] - exp_result["mean_incorrect_valid"] > max_difference:
+      max_difference = exp_result["mean_correct_valid"] - exp_result["mean_incorrect_valid"]
+      result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}.pkl'.format(dataset_name, framework_variant, kernel_type, algo_spec+add_info, run))
       
+      with open(result_file_name, 'wb') as result_file:
+        pickle.dump(exp_result, result_file)
+
+    result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}_trail{}.pkl'.format(dataset_name, framework_variant, kernel_type, algo_spec+add_info, run, trial))
+    with open(result_file_name, 'wb') as result_file:
+      pickle.dump(exp_result, result_file)
+  
+  
   print('\n\n################# third ###################\n\n')
             
   rio_setups["separate_opt"] = True
   add_info = "+separate_opt"
   trial_num = 10
   max_difference = -100
-      
+  
   for trial in range(trial_num):
 
     # FIXME: debug
@@ -355,7 +368,7 @@ for run in range(RUNS):
     # FIXME: save best, use mean_test as score: 
     if exp_result["mean_correct_valid"] - exp_result["mean_incorrect_valid"] > max_difference:
                           
-      result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}_best.pkl'.format(args.base_model, framework_variant, kernel_type, algo_spec+add_info, run))
+      result_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),'Results','{}_exp_result_{}_{}_{}_run{}.pkl'.format(args.base_model, framework_variant, kernel_type, algo_spec+add_info, run))
 
       print(f'\n\nMax difference improved from: {max_difference} to {exp_result["mean_correct_valid"] - exp_result["mean_incorrect_valid"]}.\nSaving results to {result_file_name}', end='\n\n')
 
